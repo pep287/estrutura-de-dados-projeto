@@ -1,23 +1,28 @@
-
+// gcc -o auth main.c -Wall
+// ./auth
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define SIZE 10
 
+// Estrutura para um usuário (nó da lista encadeada)
 typedef struct usuario {
-    char username[50];  
+    char username[50];
     unsigned long hash_senha;
-    int ocupado;
+    struct usuario *proximo;  // Ponteiro para próximo usuário na lista
 } usuario;
 
+// Estrutura da tabela hash
 typedef struct Hash {
     int qtd;
     int tamanho;
-    usuario **itens;
+    usuario **itens;  // Array de ponteiros para listas encadeadas
 } Hash;
 
+// ==================== FUNÇÕES DE HASH ====================
 
+// Função hash usando método da divisão
 int chaveDivisao(char *str, int tamanho) {
     unsigned long hash = 0;
     for (int i = 0; str[i] != '\0'; i++) {
@@ -26,7 +31,7 @@ int chaveDivisao(char *str, int tamanho) {
     return (int)(hash % (unsigned long)tamanho);
 }
 
-
+// Função hash para senha (djb2)
 unsigned long valorString(char *str) {
     unsigned long hash = 5381;
     int c;
@@ -36,6 +41,9 @@ unsigned long valorString(char *str) {
     return hash;
 }
 
+// ==================== FUNÇÕES DA TABELA HASH ====================
+
+// Cria a tabela hash
 Hash* criaHash(int tamanho) {
     Hash *ha = (Hash*) malloc(sizeof(Hash));
     if (ha != NULL) {
@@ -46,6 +54,7 @@ Hash* criaHash(int tamanho) {
             free(ha);
             return NULL;
         }
+        // Inicializa todas as listas como NULL
         for (int i = 0; i < tamanho; i++) {
             ha->itens[i] = NULL;
         }
@@ -53,103 +62,103 @@ Hash* criaHash(int tamanho) {
     return ha;
 }
 
+// Insere usuário usando encadeamento separado
 int insereHash(Hash *ha, char *username, char *senha) {
-    if (ha == NULL || ha->qtd == ha->tamanho)
+    if (ha == NULL)
         return 0;
     
+    // Calcula posição na tabela
     int pos = chaveDivisao(username, ha->tamanho);
-    int pos_inicial = pos;
-    int primeiro_deletado = -1;
     
-    while (ha->itens[pos] != NULL) {
-        if (ha->itens[pos]->ocupado == 1) {
-            if (strcmp(ha->itens[pos]->username, username) == 0) {
-                printf("Erro: Usuario ja existe!\n");
-                return 0;
-            }
-        } else {
-            
-            if (primeiro_deletado == -1)
-                primeiro_deletado = pos;
+    // Verifica se usuário já existe na lista dessa posição
+    usuario *atual = ha->itens[pos];
+    while (atual != NULL) {
+        if (strcmp(atual->username, username) == 0) {
+            printf("Erro: Usuario ja existe!\n");
+            return 0;
         }
-        pos = (pos + 1) % ha->tamanho;
-        
-        if (pos == pos_inicial)
-            break;
+        atual = atual->proximo;
     }
     
-    if (primeiro_deletado != -1) {
-       
-        usuario *novo = ha->itens[primeiro_deletado];
-        strcpy(novo->username, username);
-        novo->hash_senha = valorString(senha);
-        novo->ocupado = 1;
-        ha->qtd++;
-        return 1;
-    }
-
-   
+    // Cria novo usuário
     usuario *novo = malloc(sizeof(usuario));
     if (novo == NULL)
         return 0;
     
-    strcpy(novo->username, username);  
+    strcpy(novo->username, username);
     novo->hash_senha = valorString(senha);
-    novo->ocupado = 1;
     
+    // Insere no INÍCIO da lista (mais eficiente)
+    novo->proximo = ha->itens[pos];
     ha->itens[pos] = novo;
+    
     ha->qtd++;
     return 1;
 }
 
+// Busca usuário na tabela
 usuario* buscaHash(Hash *ha, char *username) {
     if (ha == NULL)
         return NULL;
     
+    // Calcula posição
     int pos = chaveDivisao(username, ha->tamanho);
-    int pos_inicial = pos;
     
-    while (ha->itens[pos] != NULL) {
-        if (ha->itens[pos]->ocupado == 1 && strcmp(ha->itens[pos]->username, username) == 0) {
-            return ha->itens[pos];
+    // Percorre a lista encadeada dessa posição
+    usuario *atual = ha->itens[pos];
+    while (atual != NULL) {
+        if (strcmp(atual->username, username) == 0) {
+            return atual;  // Encontrou!
         }
-        pos = (pos + 1) % ha->tamanho;
-        
-        if (pos == pos_inicial)
-            break;
+        atual = atual->proximo;
     }
     
-    return NULL;
+    return NULL;  // Não encontrou
 }
 
+// Remove usuário da tabela
 int removeHash(Hash *ha, char *username) {
     if (ha == NULL)
         return 0;
     
     int pos = chaveDivisao(username, ha->tamanho);
-    int pos_inicial = pos;
     
-    while (ha->itens[pos] != NULL) {
-        if (ha->itens[pos]->ocupado == 1 && strcmp(ha->itens[pos]->username, username) == 0) {
+    usuario *atual = ha->itens[pos];
+    usuario *anterior = NULL;
+    
+    // Percorre a lista procurando o usuário
+    while (atual != NULL) {
+        if (strcmp(atual->username, username) == 0) {
+            // Remove da lista
+            if (anterior == NULL) {
+                // É o primeiro da lista
+                ha->itens[pos] = atual->proximo;
+            } else {
+                // Está no meio ou fim
+                anterior->proximo = atual->proximo;
+            }
             
-            ha->itens[pos]->ocupado = 0;
+            free(atual);
             ha->qtd--;
             return 1;
         }
-        pos = (pos + 1) % ha->tamanho;
-        
-        if (pos == pos_inicial)
-            break;
+        anterior = atual;
+        atual = atual->proximo;
     }
     
-    return 0;
+    return 0;  // Não encontrou
 }
 
+// Libera toda a memória
 void liberaHash(Hash *ha) {
     if (ha != NULL) {
+        // Libera cada lista encadeada
         for (int i = 0; i < ha->tamanho; i++) {
-            if (ha->itens[i] != NULL) {
-                free(ha->itens[i]);
+            usuario *atual = ha->itens[i];
+            while (atual != NULL) {
+                usuario *temp = atual;
+                atual = atual->proximo;
+                free(temp);
             }
         }
         free(ha->itens);
@@ -157,24 +166,42 @@ void liberaHash(Hash *ha) {
     }
 }
 
+// Imprime a tabela mostrando colisões
 void imprimeHash(Hash *ha) {
     if (ha != NULL) {
-        printf("\n===== TABELA HASH =====\n");
-        printf("Tamanho: %d | Ocupados: %d\n\n", ha->tamanho, ha->qtd);
+        printf("\n===== TABELA HASH=====\n");
+        printf("Tamanho: %d | Total de usuarios: %d\n\n", ha->tamanho, ha->qtd);
         
         for (int i = 0; i < ha->tamanho; i++) {
-            printf("[%d] = ", i);
-            if (ha->itens[i] != NULL && ha->itens[i]->ocupado == 1) {
-                printf("%s (hash: %lu)\n", 
-                       ha->itens[i]->username, 
-                       ha->itens[i]->hash_senha);
-            } else {
+            printf("[%d]: ", i);
+            
+            usuario *atual = ha->itens[i];
+            
+            if (atual == NULL) {
                 printf("vazio\n");
+            } else {
+                int contador = 0;
+                // Percorre a lista encadeada
+                while (atual != NULL) {
+                    if (contador > 0) printf(" -> ");
+                    printf("%s (hash: %lu)", atual->username, atual->hash_senha);
+                    atual = atual->proximo;
+                    contador++;
+                }
+                
+                // Indica se houve colisão
+                if (contador > 1) {
+                    printf("  [COLISAO: %d usuarios]\n", contador);
+                } else {
+                    printf("\n");
+                }
             }
         }
-        printf("=======================\n\n");
+        printf("================================================\n\n");
     }
 }
+
+// ==================== SISTEMA DE AUTENTICAÇÃO ====================
 
 void cadastrar(Hash *ha) {
     char username[50], senha[50];
@@ -241,6 +268,8 @@ void menu() {
     printf("Opcao: ");
 }
 
+// ==================== MAIN ====================
+
 int main() {
     Hash *ha = criaHash(SIZE);
     
@@ -254,7 +283,6 @@ int main() {
     do {
         menu();
         if (scanf("%d", &opcao) != 1) {
-            
             int c;
             while ((c = getchar()) != '\n' && c != EOF) {}
             opcao = 0;
@@ -284,4 +312,3 @@ int main() {
     liberaHash(ha);
     return 0;
 }
-
