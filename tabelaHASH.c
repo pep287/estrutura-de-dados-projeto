@@ -1,4 +1,5 @@
-// gcc -o auth main.c -Wall
+// como rodar:
+// gcc -o tabelaHASH.c main.c -Wall
 // ./auth
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,23 +7,23 @@
 
 #define SIZE 10
 
-// Estrutura para um usuário (nó da lista encadeada)
+
 typedef struct usuario {
     char username[50];
     unsigned long hash_senha;
     struct usuario *proximo;  // Ponteiro para próximo usuário na lista
 } usuario;
 
-// Estrutura da tabela hash
+
 typedef struct Hash {
     int qtd;
     int tamanho;
     usuario **itens;  // Array de ponteiros para listas encadeadas
 } Hash;
 
-// ==================== FUNÇÕES DE HASH ====================
+// ==================== FUNÇÕES PARA GERAR HASH ====================
 
-// Função hash usando método da divisão
+
 int chaveDivisao(char *str, int tamanho) {
     unsigned long hash = 0;
     for (int i = 0; str[i] != '\0'; i++) {
@@ -31,7 +32,7 @@ int chaveDivisao(char *str, int tamanho) {
     return (int)(hash % (unsigned long)tamanho);
 }
 
-// Função hash para senha (djb2)
+// Função hash (djb2) para gerar hash para senha
 unsigned long valorString(char *str) {
     unsigned long hash = 5381;
     int c;
@@ -43,7 +44,7 @@ unsigned long valorString(char *str) {
 
 // ==================== FUNÇÕES DA TABELA HASH ====================
 
-// Cria a tabela hash
+
 Hash* criaHash(int tamanho) {
     Hash *ha = (Hash*) malloc(sizeof(Hash));
     if (ha != NULL) {
@@ -54,7 +55,7 @@ Hash* criaHash(int tamanho) {
             free(ha);
             return NULL;
         }
-        // Inicializa todas as listas como NULL
+        
         for (int i = 0; i < tamanho; i++) {
             ha->itens[i] = NULL;
         }
@@ -67,10 +68,10 @@ int insereHash(Hash *ha, char *username, char *senha) {
     if (ha == NULL)
         return 0;
     
-    // Calcula posição na tabela
+
     int pos = chaveDivisao(username, ha->tamanho);
     
-    // Verifica se usuário já existe na lista dessa posição
+    
     usuario *atual = ha->itens[pos];
     while (atual != NULL) {
         if (strcmp(atual->username, username) == 0) {
@@ -80,7 +81,7 @@ int insereHash(Hash *ha, char *username, char *senha) {
         atual = atual->proximo;
     }
     
-    // Cria novo usuário
+    
     usuario *novo = malloc(sizeof(usuario));
     if (novo == NULL)
         return 0;
@@ -88,7 +89,7 @@ int insereHash(Hash *ha, char *username, char *senha) {
     strcpy(novo->username, username);
     novo->hash_senha = valorString(senha);
     
-    // Insere no INÍCIO da lista (mais eficiente)
+
     novo->proximo = ha->itens[pos];
     ha->itens[pos] = novo;
     
@@ -96,27 +97,27 @@ int insereHash(Hash *ha, char *username, char *senha) {
     return 1;
 }
 
-// Busca usuário na tabela
+
 usuario* buscaHash(Hash *ha, char *username) {
     if (ha == NULL)
         return NULL;
     
-    // Calcula posição
+    
     int pos = chaveDivisao(username, ha->tamanho);
     
     // Percorre a lista encadeada dessa posição
     usuario *atual = ha->itens[pos];
     while (atual != NULL) {
         if (strcmp(atual->username, username) == 0) {
-            return atual;  // Encontrou!
+            return atual;  
         }
         atual = atual->proximo;
     }
     
-    return NULL;  // Não encontrou
+    return NULL;
 }
 
-// Remove usuário da tabela
+
 int removeHash(Hash *ha, char *username) {
     if (ha == NULL)
         return 0;
@@ -201,7 +202,7 @@ void imprimeHash(Hash *ha) {
     }
 }
 
-// ==================== SISTEMA DE AUTENTICAÇÃO ====================
+// ==================== SISTEMAS DE AUTENTICAÇÃO ====================
 
 void cadastrar(Hash *ha) {
     char username[50], senha[50];
@@ -268,7 +269,7 @@ void menu() {
     printf("Opcao: ");
 }
 
-// ==================== MAIN ====================
+
 
 int main() {
     Hash *ha = criaHash(SIZE);
